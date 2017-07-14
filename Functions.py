@@ -26,43 +26,43 @@ import datetime as dt
 def delete_doubles(dataframe,data,
                    log_file=os.path.join(os.getcwd(),'delete_doubles_log.txt')):
     '''
-    deletes double values that occur in a row, to avoid an abundance of 
+    deletes double values that occur in a row, to avoid an abundance of
     relatively meaningless datapoints (e.g. measuring frequency too high)
-        
+
     Parameters
     ----------
     dataframe : pd.DataFrame
-        dataframe from which double values need to be removed        
+        dataframe from which double values need to be removed
     data : str
-        column name of the column from which double values will be sought 
+        column name of the column from which double values will be sought
         and removed
-    
+
     Returns
     -------
-    new_dataframe : pd.DataFrame 
+    new_dataframe : pd.DataFrame
         the dataframe from which the double values of 'data' are removed
     '''
-    original = len(dataframe)    
-    
+    original = len(dataframe)
+
     #Create temporary dataframe column with True boolean value if datapoint can
-    #stay because it is different from the previous one    
+    #stay because it is different from the previous one
     dataframe['cond_to_drop'] = pd.Series([n for n in dataframe[data].diff() != 0])
     new_dataframe = dataframe.drop(dataframe[dataframe.cond_to_drop==False].index)
     new_dataframe.drop('cond_to_drop',axis=1,inplace=True)
     new_dataframe.reset_index(drop=True,inplace=True)
-    
+
     log_file = open(log_file,'a')
     log_file.write(str('\nOriginal dataset: '+str(original)+' datapoints; New dataset: '+
                    str(len(new_dataframe))+' datapoints; '+str(original-len(new_dataframe))+
                    ' subsequent duplicates removed\n'))
     log_file.close()
-    
+
     return new_dataframe
 
 def calc_slopes(dataframe,xdata,ydata,time_unit=None):
     """
     Calculates slopes for given xdata and ydata
-    
+
     Parameters
     ----------
     dataframe : pd.DataFrame
@@ -77,7 +77,7 @@ def calc_slopes(dataframe,xdata,ydata,time_unit=None):
     Returns
     -------
     pd.DataFrame
-        dataframe containing an added column with the slopes calculated for the 
+        dataframe containing an added column with the slopes calculated for the
         chosen variable, named after the variable + _slopes
     """
     new_name = ydata+'_slopes'
@@ -93,21 +93,21 @@ def calc_slopes(dataframe,xdata,ydata,time_unit=None):
     elif time_unit == 'd':
         dataframe[new_name] = dataframe[ydata].diff() / \
                               (dataframe[xdata].diff().dt.days + \
-                              dataframe[xdata].diff().dt.seconds / 3600 / 24)                        
+                              dataframe[xdata].diff().dt.seconds / 3600 / 24)
     elif time_unit == None:
         dataframe[new_name] = dataframe[ydata].diff() / dataframe[xdata].diff()
-    else : 
-        print 'Something went wrong. If you are using time-units to calculate \
+    else :
+        print('Something went wrong. If you are using time-units to calculate \
                slopes, please make sure you entered a valid time unit for slope \
-               calculation (sec, min, hr or d)'
+               calculation (sec, min, hr or d)')
         return None
-        
+
     return dataframe
 
 def drop_peaks(dataframe,data,cutoff):
     """
     Filters out the peaks larger than a cut-off value in a dataseries
-    
+
     Parameters
     ----------
     dataframe : pd.DataFrame
@@ -115,25 +115,25 @@ def drop_peaks(dataframe,data,cutoff):
     data : str
         the name of the column to use for the removal of peak values
     cutoff : int
-        cut off value to use for the removing of peaks; values with an 
+        cut off value to use for the removing of peaks; values with an
         absolute value larger than this cut off will be removed from the data
-        
+
     Returns
     -------
     pd.DataFrame
         dataframe with the peaks removed
     """
     dataframe = dataframe.drop(dataframe[abs(dataframe[data]) > cutoff].index)
-    
+
     return dataframe
 
 def simple_moving_average(dataframe,data,window):
     """
     Calculate the Simple Moving Average of a dataseries from a dataframe, using
-    a window within which the datavalues are averaged; This is a slower 
-    implementation, but allows more understanding of the meaning of a simple 
+    a window within which the datavalues are averaged; This is a slower
+    implementation, but allows more understanding of the meaning of a simple
     moving average.
-    
+
     Parameters
     ----------
     dataframe : pd.DataFrame
@@ -141,9 +141,9 @@ def simple_moving_average(dataframe,data,window):
     data : str
         name of the column containing the data that needs to be smoothened
     window : int
-        the number of values from the dataset that are used to take the average 
+        the number of values from the dataset that are used to take the average
         at the current point.
-    
+
     Returns
     -------
     pd.DataFrame
@@ -152,21 +152,21 @@ def simple_moving_average(dataframe,data,window):
     #Check if the window for the average is not larger then the amount of data
     if len(dataframe) < window:
         raise ValueError("Window width exceeds number of datapoints!")
-        
-    new_name=data+'_smooth'    
+
+    new_name=data+'_smooth'
     dataframe[new_name] = pd.Series(pd.rolling_mean(dataframe[data],
                                                     window=window,
                                                     center=True),
                                     index=dataframe.index)
-    
-    return dataframe    
+
+    return dataframe
 
 def moving_average_filter(dataframe,data,window,cutoff,
                           log_file=os.path.join(os.getcwd(),'filter_log.txt')):
     """
-    Filters out the peaks/outliers in a dataset by comparing it's values to a 
-    smoothened representation of the dataset (Moving Average Filtering)    
-    
+    Filters out the peaks/outliers in a dataset by comparing it's values to a
+    smoothened representation of the dataset (Moving Average Filtering)
+
     Parameters
     ----------
     dataframe : pd.DataFrame
@@ -174,7 +174,7 @@ def moving_average_filter(dataframe,data,window,cutoff,
     data : str
         name of the column containing the data that needs to be smoothened
     window : int
-        the number of values from the dataset that are used to take the average 
+        the number of values from the dataset that are used to take the average
         at the current point.
     cutoff: int
         the cutoff value to compare the difference between data and smoothened
@@ -185,35 +185,35 @@ def moving_average_filter(dataframe,data,window,cutoff,
     pd.DataFrame
         the adjusted dataframe with the filtered values
     """
-    
-    original = len(dataframe)    
-    
+
+    original = len(dataframe)
+
     #Calculate smoothened dataset
     dataframe_smooth = simple_moving_average(dataframe,data,window)
-    smooth_name = dataframe_smooth.columns[-1]    
-    
+    smooth_name = dataframe_smooth.columns[-1]
+
     #Compare data with smoothened data and remove datapoints that divert too much
-    difference = dataframe_smooth[data]-dataframe_smooth[smooth_name] 
-    dataframe['difference'] = pd.Series([n for n in abs(difference) > cutoff])    
+    difference = dataframe_smooth[data]-dataframe_smooth[smooth_name]
+    dataframe['difference'] = pd.Series([n for n in abs(difference) > cutoff])
     dataframe = dataframe.drop(dataframe[dataframe.difference==True].index)
     dataframe = dataframe.drop('difference',axis=1)
     dataframe.reset_index(drop=True,inplace=True)
-    
+
     log_file = open(log_file,'a')
     log_file.write(str('\nOriginal dataset: '+str(original)+' datapoints; new dataset: '+
                    str(len(dataframe))+' datapoints')+str('\n'+str(original-len(dataframe))+
                    ' datapoints filtered'))
     log_file.close()
-    
+
     return dataframe
 
 def moving_slope_filter(dataframe,time,data,cutoff,time_unit=None,
                         log_file=os.path.join(os.getcwd(),'filter_log.txt')):
     """
-    Filters out datapoints based on the difference between the slope in one point 
-    and the next (sudden changes like noise get filtered out), based on a given 
-    cut off; Moving Slope Filtering 
-    
+    Filters out datapoints based on the difference between the slope in one point
+    and the next (sudden changes like noise get filtered out), based on a given
+    cut off; Moving Slope Filtering
+
     Parameters
     ----------
     dataframe : pd.DataFrame
@@ -224,34 +224,34 @@ def moving_slope_filter(dataframe,time,data,cutoff,time_unit=None,
         name of the column containing the data that needs to be filtered
     cutoff: int
         the cutoff value to compare the slopes with to apply the filtering.
-    
+
     Returns
     -------
     pd.DataFrame
         the adjusted dataframe with the filtered values
-    
+
     """
     original = len(dataframe)
-    
+
     #calculate initial slopes
-    new_dataframe = calc_slopes(dataframe,time,data,time_unit=time_unit) 
-    new_name = dataframe.columns[-1]    
+    new_dataframe = calc_slopes(dataframe,time,data,time_unit=time_unit)
+    new_name = dataframe.columns[-1]
 
     #As long as the slope column contains values higher then cutoff, remove those
     #rows from the dataframe and recalculate slopes
-    while abs(new_dataframe[new_name]).max() > cutoff:        
+    while abs(new_dataframe[new_name]).max() > cutoff:
         new_dataframe = new_dataframe.drop(new_dataframe[abs(new_dataframe[new_name]) > cutoff].index)
         new_dataframe = calc_slopes(new_dataframe,time,data,time_unit=time_unit)
-   
+
     new_dataframe = new_dataframe.drop(new_name,axis='columns')
     new_dataframe.reset_index(drop=True,inplace=True)
-    
+
     log_file = open(log_file,'a')
     log_file.write(str('Original dataset: '+str(original)+' datapoints; new dataset: '+
                    str(len(new_dataframe))+' datapoints'+str(original-len(new_dataframe))+
                    ' datapoints filtered\n'))
     log_file.close()
-    
+
     return new_dataframe
 
 def _select_slope(dataframe,ydata,down=True,limits=[0,0],
@@ -260,29 +260,29 @@ def _select_slope(dataframe,ydata,down=True,limits=[0,0],
     Selects down- or upward sloping data from a given dataseries, based on the
     maximum in the dataseries. This requires only one maximum to be present in
     the dataset.
-    
+
     Parameters
     ----------
     dataframe : pd.DataFrame
-        pandas dataframe containing the series for which slopes, either up or 
+        pandas dataframe containing the series for which slopes, either up or
         down, need to be selected
     ydata : str
-        name of the column containing the data for which slopes, either up or 
+        name of the column containing the data for which slopes, either up or
         down, need to be selected
     down : bool
         if True, the downwards slopes are selected, if False, the upward slopes
     limits : array with two values
         min and max value that is allowed for the data
-        
+
     based_on_max : bool
         if True, the data is selected based on the maximum of the data, if
         false it is based on the minimum
     bounds : array
-        array containing two integer values, indicating the extra margin of 
-        values that needs to be dropped from the dataset to avoid selecting 
+        array containing two integer values, indicating the extra margin of
+        values that needs to be dropped from the dataset to avoid selecting
         irregular data (e.g. not straightened out after reaching of maximum)
     Returns
-    -------    
+    -------
     pd.DataFrame:
         a dataframe from which the non-down or -upward sloping data are dropped
     """
@@ -303,7 +303,7 @@ def _select_slope(dataframe,ydata,down=True,limits=[0,0],
                            str(new_len)+' datapoints left.\n'))
             return dataframe
         except:#IndexError:
-            print 'Not enough datapoints left for selection'
+            print( 'Not enough datapoints left for selection')
             return pd.DataFrame()
 
     elif down == False:
@@ -319,40 +319,40 @@ def _select_slope(dataframe,ydata,down=True,limits=[0,0],
                            str(new_len)+'datapoints left.\n'))
             return dataframe
         except:#IndexError:
-            print 'Not enough datapoints left for selection'
+            print( 'Not enough datapoints left for selection')
             return pd.DataFrame()
-    
+
 #    elif based_on_max == False:
 #        drop_index = dataframe[ydata].idxmin()
 #        if down == True:
 #            try:
-#                print 'Selecting downward slope:',drop_index+sum(bounds),\
+#                print( 'Selecting downward slope:',drop_index+sum(bounds),\
 #                'datapoints dropped,',len(dataframe)-drop_index-sum(bounds),\
-#                'datapoints left.'
-#                
+#                'datapoints left.')
+#
 #                dataframe = dataframe[bounds[0]:drop_index-bounds[1]]
 #                dataframe.reset_index(drop=True,inplace=True)
 #                return dataframe
 #            except IndexError:
-#                print 'Not enough datapoints left for selection'
-#    
+#                print( 'Not enough datapoints left for selection')
+#
 #        elif down == False:
 #            try:
-#                print 'Selecting upward slope:',len(dataframe)-drop_index+sum(bounds),\
-#                'datapoints dropped,',drop_index-sum(bounds),'datapoints left.'
-#                
+#                print( 'Selecting upward slope:',len(dataframe)-drop_index+sum(bounds),\
+#                'datapoints dropped,',drop_index-sum(bounds),'datapoints left.')
+#
 #                dataframe = dataframe[drop_index+bounds[0]:-bounds[1]]
 #                dataframe.reset_index(drop=True,inplace=True)
 #                return dataframe
 #            except IndexError:
-#                print 'Not enough datapoints left for selection'
-#   
+#                print( 'Not enough datapoints left for selection')
+#
 def extract_slopes(path,xdata,ydata,filter_function,cutoff,
                    ext='text',comment='#',down=True,limits=[0,0],time_unit='sec',
                    delta_t=dt.timedelta(weeks=1),schrikkel=False,
                    plot=[True,(-500,-400,-300,-200,-100,0)]):
     """
-    
+
     Parameters
     ----------
     path : str
@@ -360,7 +360,7 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
     xdata : str
         name of the columns in the datafiles containing the xdata, often time
     ydata : str
-        name of the columns in the datafiles containing the ydata, usually 
+        name of the columns in the datafiles containing the ydata, usually
         measurements
     filter_function : function
         function to be used to clean the data from noise or anomalies
@@ -380,49 +380,49 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
         if true, the year in which the measurements were done was a 'schrikkel-
         jaar'; important for exact date plotting
     plot : bool
-        if True, a figure and axes object will be produced and added to the 
+        if True, a figure and axes object will be produced and added to the
         output for the user to adjust to his/her wishes
-        
+
     Returns
     -------
-    pd.DataFrame : 
-        dataframe containing two or three colums: 
+    pd.DataFrame :
+        dataframe containing two or three colums:
             1) timestamp (in pandas Timestamp type)
-            2) the mean slope values of the selected data from every file in 
+            2) the mean slope values of the selected data from every file in
             the directory
             3) the mean standard deviations of the selected data from every file
             in the directory
-    plt.figure : 
+    plt.figure :
         matplotlib figure object depicting the data in the dataframe
-    plt.axes : 
+    plt.axes :
         matplotlib axes object to go with the figure object
-    
+
     """
     slopes_mean =[]
     slopes_std = []
     timestamp = []
-    
+
     if ext == 'text':
         files = [f for f in listdir(path) if f.endswith('.txt')]
     elif ext == 'csv':
         files = [f for f in listdir(path) if f.endswith('.csv')]
     else:
-        print 'No files with',ext,'extension found in directory',path,'. \
-               Please choose one of the following: text, csv'
-        
+        print( 'No files with',ext,'extension found in directory',path,'. \
+               Please choose one of the following: text, csv')
+
     #Sort files alphabetically to make sure they are treated in the
     #correct order
     files.sort()
-    
-    print 'Reading',len(files),'files...'
+
+    print( 'Reading',len(files),'files...')
     log_file_location = os.path.join(path,'log.md')
-    print 'Creating log-file at',log_file_location
-    
+    print( 'Creating log-file at',log_file_location)
+
     if os.path.exists(log_file_location):
         os.remove(log_file_location)
     log_file = open(log_file_location,'a')
-    
-    #create figure and axis object for combined histogram figure outside 
+
+    #create figure and axis object for combined histogram figure outside
     #for-loop!
     fig_hist, ax_hist = plt.subplots()
     fig_hist.hold(True)
@@ -435,16 +435,16 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
             headerlength = _get_header_length(read_file,ext=ext,
                                               comment=comment)
             data = _read_file(dir_file_path,ext=ext,skiprows=headerlength)
-            log_file.write(str('\nHeaderlength:'+str(headerlength)))           
+            log_file.write(str('\nHeaderlength:'+str(headerlength)))
             #Drop subsequent double values from dataset
             log_file = open(log_file_location,'a')
             log_file.write('\nDeleting double values\n')
             log_file.close()
             data = data[[xdata,ydata]]
-            data = delete_doubles(data,ydata,log_file_location)            
+            data = delete_doubles(data,ydata,log_file_location)
             #If less than 5 dataopints available, do not use the file
             if len(data) < 5:
-                log_file = open(log_file_location,'a') 
+                log_file = open(log_file_location,'a')
                 log_file.write(str('\nNot enough datapoints for reliable analysis. Dropping file '+str(file_name)+'\n'))
                 continue
             #Check if slopes are calculated with reference to time
@@ -457,20 +457,20 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
             else:
                 xdata_abs = xdata + '_abs'
                 data[xdata_abs] = data[xdata]
- 
-            log_file = open(log_file_location,'a')            
+
+            log_file = open(log_file_location,'a')
             log_file.write(str('\nFiltering based on'+str(filter_function)))
             data = filter_function(data,xdata_abs,ydata,cutoff,time_unit,
                                    log_file_location)
-            
+
             log_file.write('\nSelecting slope data\n')
-            data = _select_slope(data,ydata,down,limits,log_file_location)        
+            data = _select_slope(data,ydata,down,limits,log_file_location)
             #If less than 5 dataopints available, do not use the file
             if len(data) < 5:
-                log_file = open(log_file_location,'a') 
+                log_file = open(log_file_location,'a')
                 log_file.write(str('\nNot enough datapoints for reliable analysis. Dropping file '+str(file_name)+'\n'))
                 continue
-            
+
             log_file.write('\nCalculating slopes\n')
             #split data in pieces for higher frequency slope calculation
             k = data[xdata_abs].iloc[0]
@@ -480,27 +480,27 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
                 help_data = data[data[xdata_abs] > begin]
                 help_data = help_data[help_data[xdata_abs] < end]
                 if len(help_data) < 5:
-                    log_file = open(log_file_location,'a') 
+                    log_file = open(log_file_location,'a')
                     log_file.write(str('\nNot enough datapoints for reliable analysis. Dropping a part from file '+str(file_name)+'\n'))
-                    k = end              
+                    k = end
                     continue
                 with_slopes = calc_slopes(help_data,xdata_abs,ydata,time_unit=time_unit)
                 slopes_name = ydata+'_slopes'
-            
+
                 slopes_mean.append(with_slopes[slopes_name].mean())
                 slopes_std.append(with_slopes[slopes_name].std())
                 log_file.write(str('\nAverage slope:'+str(slopes_mean[-1])+'±'+
                                str(slopes_std[-1])))
-            
+
                 timestamp.append(with_slopes[xdata_abs].iloc[-1])
                          #schrikkel=schrikkel)
                 k = end
-                
+
                 if plot[0] == True:
                     directory = path+'/figures'
                     if not os.path.exists(directory):
                         os.makedirs(directory)
-                        
+
                     log_file.write('\nSaving histogram...\n')
                     fig2, ax2 = plt.subplots()
                     try:
@@ -512,16 +512,16 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
                     filename = os.path.join(directory,filename)
                     fig2.savefig(filename)
 
-            if plot[0] == True:    
+            if plot[0] == True:
                 log_file.write('\nSaving dataplot...')
                 fig, ax = plt.subplots()
                 ax.plot(data[xdata_abs],data[ydata])
                 filename = file_name+'DATA.png'
                 filename = os.path.join(directory,filename)
-                fig.savefig(filename) 
-                    
-                    
-                    
+                fig.savefig(filename)
+
+
+
 #            try:
 #                histogram_data = plt.hist(with_slopes[slopes_name],bins=plot[1])
 #                bin_centers = [(j+i)/2 for i, j in zip(histogram_data[1][:-1],
@@ -530,16 +530,16 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
 #                ax_hist.plot(bin_centers,relative_amount,label=timestamp[-1])
 #            except (NameError, ValueError):
 #                log_file.write('No datapoints for combined histogram')
-            
+
     dataframe = pd.DataFrame(np.array([slopes_mean,slopes_std]).transpose(),
                              index=timestamp,columns=['mean','std'])
-                               
+
     if plot[0] == True:
         log_file.write('\nSaving combined histogram...')
         filename = 'HIST_ALL.png'
         filename = os.path.join(directory,filename)
         fig_hist.savefig(filename)
-        
+
         figure, axes = plt_avg_and_std(dataframe['mean'],dataframe['std'],
                                        xax=dataframe.index)#,ylim=[-800,0])
         log_file.write('\nEnd')
@@ -550,14 +550,14 @@ def extract_slopes(path,xdata,ydata,filter_function,cutoff,
         log_file.close()
         return dataframe
 
-print 'DataAnalysisFcns.py loaded'
+print( 'DataAnalysisFcns.py loaded')
 
 
 def _get_header_length(read_file,ext='text',comment='#'):
     """
     Determines the amount of rows that are part of the header in a file that is
-    already opened and readable    
-    
+    already opened and readable
+
     Parameters
     ----------
     read_file : opened file
@@ -566,15 +566,15 @@ def _get_header_length(read_file,ext='text',comment='#'):
         the extension (in words) of the file the headerlength needs to be found
         for
     comment : str
-        comment symbol used in the files 
+        comment symbol used in the files
 
     Returns
-    ------- 
+    -------
     headerlength : int
         the amount of rows that are part of the header in the read file
-    
-    """        
-    
+
+    """
+
     headerlength = 0
     header_test = comment
     counter = 0
@@ -583,31 +583,31 @@ def _get_header_length(read_file,ext='text',comment='#'):
             header_test = str(read_file.sheet_by_index(0).cell_value(counter,0))[0]
             headerlength += 1
             counter +=1
-            
+
     elif ext == 'text' or ext == 'csv':
         while header_test == comment:
             header_test = read_file.readline()[0]
             headerlength += 1
-     
+
     return headerlength-1
 
 def _open_file(filepath,ext='text'):
     """
-    Opens file of a given extension in readable mode   
-    
+    Opens file of a given extension in readable mode
+
     Parameters
     ----------
     filepath : str
         the complete path to the file to be opened in read mode
     ext : str
-        the extension (in words) of the file that needs to be opened in read 
+        the extension (in words) of the file that needs to be opened in read
         mode
-    
+
     Returns
-    ------- 
+    -------
     The opened file in read mode
-    
-    """        
+
+    """
     if ext == 'text' or ext == 'zrx' or ext == 'csv':
         return open(filepath, 'r')
     elif ext == 'excel':
@@ -615,8 +615,8 @@ def _open_file(filepath,ext='text'):
 
 def _read_file(filepath,ext='text',skiprows=0):
     """
-    Read a file of given extension and save it as a pandas dataframe   
-    
+    Read a file of given extension and save it as a pandas dataframe
+
     Parameters
     ----------
     filepath : str
@@ -625,12 +625,12 @@ def _read_file(filepath,ext='text',skiprows=0):
         the extension (in words) of the file that needs to be read and saved
     skiprows : int
         number of rows to skip when reading a file
-    
+
     Returns
-    ------- 
+    -------
     A pandas dataframe containing the data from the given file
-    
-    """   
+
+    """
     if ext == 'text':
         return pd.read_table(filepath,skiprows=skiprows,decimal='.')
     elif ext == 'excel':
@@ -641,7 +641,7 @@ def _read_file(filepath,ext='text',skiprows=0):
 def join_dir_files(path,ext='text',comment='#'):
     """
     Reads all files in a given directory, joins them and returns one pd.dataframe
-    
+
     Parameters
     ----------
     path : str
@@ -650,15 +650,15 @@ def join_dir_files(path,ext='text',comment='#'):
         extention of the files to read; possible: excel, text
     comment : str
         comment symbol used in the files
-    
+
     Returns
     -------
-    pd.dataframe: 
+    pd.dataframe:
         pandas dataframe containin concatenated files in the given directory
     """
     #Initialisations
     data = pd.DataFrame()
-  
+
     #Select files based on extension
     if ext == 'excel':
         files = [f for f in listdir(path) if '.xls' in f]
@@ -667,15 +667,15 @@ def join_dir_files(path,ext='text',comment='#'):
     elif ext == 'csv':
         files = [f for f in listdir(path) if f.endswith('.csv')]
     else:
-        print 'No files with',ext,'extension found in directory',path,'Please \
-        choose one of the following: text, excel, csv'
-        
+        print( 'No files with',ext,'extension found in directory',path,'Please \
+        choose one of the following: text, excel, csv')
+
         return None
-        
+
     #Sort files alphabetically to make sure they are added to each other in the
     #correct order
     files.sort()
-        
+
     #Read files
     for file_name in files:
         dir_file_path = os.path.join(path,file_name)
@@ -684,9 +684,9 @@ def join_dir_files(path,ext='text',comment='#'):
             data = data.append(_read_file(dir_file_path,ext=ext,
                                           skiprows=headerlength),
                                 ignore_index=True)
-            print 'File ',file_name,' has',headerlength,\
-            'header lines, adding data to dataframe with columns',data.columns
-            
+            print( 'File ',file_name,' has',headerlength,\
+            'header lines, adding data to dataframe with columns',data.columns)
+
     return data
 
 
@@ -699,11 +699,11 @@ def get_avg(dataframe,name=['none'],plot=False):
     dataframe : pd.DataFrame
         dataframe containing the columns to calculate the average for
     name : arary of str
-        name(s) of the column(s) containing the data to be averaged; defaults 
+        name(s) of the column(s) containing the data to be averaged; defaults
         to ['none'] and will calculate average for every column
     plot : bool
         if True, plots the calculated mean values, defaults to False
-    
+
     Returns
     -------
     pd.DataFrame :
@@ -712,11 +712,11 @@ def get_avg(dataframe,name=['none'],plot=False):
     """
     if name == ['none']:
         slopes_mean = dataframe.mean()
-    else: 
+    else:
         for i in name:
             slopes_mean.append(dataframe[name].mean())
-        
-    if plot == True: 
+
+    if plot == True:
         plt.plot(slopes_mean)
 
     return slopes_mean
@@ -730,12 +730,12 @@ def get_std(dataframe,name=['none'],plot=False):
     dataframe : pd.DataFrame
         dataframe containing the columns to calculate the standard deviation for
     name : arary of str
-        name(s) of the column(s) containing the data to calculate standard 
-        deviation for; defaults to ['none'] and will calculate standard 
+        name(s) of the column(s) containing the data to calculate standard
+        deviation for; defaults to ['none'] and will calculate standard
         deviation for every column
     plot : bool
         if True, plots the calculated standard deviations, defaults to False
-    
+
     Returns
     -------
     pd.DataFrame :
@@ -744,21 +744,21 @@ def get_std(dataframe,name=['none'],plot=False):
     """
     if name == ['none']:
         slopes_std = dataframe.std()
-    else: 
+    else:
         for i in name:
             slopes_std.append(dataframe[name].std())
-        
-    if plot == True: 
+
+    if plot == True:
         plt.plot(slopes_std)
 
     return slopes_std
-        
+
 def plt_avg_and_std(slopes_mean,slopes_std,xax=[]):#,labels=['Series','Average'],\
                     #figsize=(14,8),ylim=[-100,100]):
     """
-    Plots a figure of given datapoints, along with their standard deviation. 
+    Plots a figure of given datapoints, along with their standard deviation.
     The x-axis can be given or is assumed as default if not entered as argument.
-    
+
     Parameters
     ----------
     slopes_mean : pd.Series
@@ -772,29 +772,29 @@ def plt_avg_and_std(slopes_mean,slopes_std,xax=[]):#,labels=['Series','Average']
     """
     if len(xax) == 0:
         xax = np.arange(0,len(slopes_mean))
-        
+
     fig, ax = plt.subplots()
     ax.errorbar(xax,slopes_mean,slopes_std)#,linestyle='None',marker='^')
     #plt.xlim(xax[0]-1,xax[-1]+1)
     #ax.set_ylim(ylim)
     #ax.set_xlabel(labels[0])
     #ax.set_ylabel(labels[1])
-    
+
     return fig, ax
 
-print 'DataReadingFcns.py loaded' 
+print( 'DataReadingFcns.py loaded' )
 
 def _make_month_day_array(schrikkel=False):
     """
     makes a dataframe containing two columns, one with the number of the month,
     one with the day of the month. Useful in creating datetime objects based on
-    e.g. date serial numbers from the Window Date System 
+    e.g. date serial numbers from the Window Date System
     (http://excelsemipro.com/2010/08/date-and-time-calculation-in-excel/)
-    
+
     Returns
     -------
-    pd.DataFrame : 
-        dataframe with number of the month and number of the day of the month 
+    pd.DataFrame :
+        dataframe with number of the month and number of the day of the month
         for a whole year
     """
     if schrikkel == False:
@@ -809,50 +809,50 @@ def _make_month_day_array(schrikkel=False):
             days.append(j)
             months.append(month)
         month += 1
-    
+
     month_day_array = pd.DataFrame()
     month_day_array['month'] = months
     month_day_array['day'] = days
-    
+
     return month_day_array
 
 def _get_absolute_time(value,date_type='WindowsDateSystem',data_year=dt.datetime.now().year,
                        schrikkel=False,time_type='None',
                        date_format="%m.%d.%Y %H:%M:%S"):
     """
-    Converts a time given in the Windows Date System to the absolute date at 
+    Converts a time given in the Windows Date System to the absolute date at
     which the experiment was conducted
     (see also: http://excelsemipro.com/2010/08/date-and-time-calculation-in-excel/)
     """
-    leap_years = (data_year-1900) / 4
-    
+    leap_years = int((data_year-1900) / 4)
+
     if date_type == 'WindowsDateSystem':
         #Calculate date
         #year_from_1900 = (int(value) - leap_years) / 365
         day_in_year = (int(value) - leap_years) % 365 - 2
         #decimals = (int(value) - leap_years) / 365. - year_from_1900
-        if schrikkel == True & day_in_year > 59:
+        if schrikkel == True & (day_in_year > 59):
             day_in_year = day_in_year - 3#int(366*decimals) - 1
         #elif schrikkel == False:
         #    day_in_year = int(365*decimals) - 1
         months_days = _make_month_day_array(schrikkel=schrikkel)
         month = months_days['month'][day_in_year]
         day_in_month = months_days['day'][day_in_year]
-        
+
         #Calculate time
         decimals = value - int(value)
         seconds_total = decimals * 86400
         hours = int(seconds_total / (60 * 60))
         minutes = int((seconds_total - (hours * 60 * 60)) / 60)
         seconds = int(seconds_total - hours * 60 * 60 - minutes * 60)
-    
+
         timestamp = dt.datetime(data_year,month,day_in_month,hours,minutes,seconds)
-    
+
     elif date_type == 'String':
         timestamp = dt.datetime.strptime(value,date_format)
-        
+
     return timestamp
-    
+
 def add_absolute_time(dataframe,timedata):
     """
     adds the absolute time to a dataframe based on a given column with time-
@@ -860,7 +860,7 @@ def add_absolute_time(dataframe,timedata):
     """
     timedata_abs = timedata + '_abs'
     dataframe[timedata_abs] = dataframe[timedata].apply(_get_absolute_time)
-        
+
     return dataframe
-    
-print 'TimeConversionFcns.py loaded'
+
+print( 'TimeConversionFcns.py loaded')
